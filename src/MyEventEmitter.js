@@ -5,22 +5,22 @@ class MyEventEmitter {
     this._events = {};
   }
 
-  on(event, listener) {
+  _addListener(event, listener, once) {
     if (!this._events[event]) {
       this._events[event] = [];
     }
 
-    this._events[event].push({ listener, once: false });
+    this._events[event].push({ listener, once });
+  }
+
+  on(event, listener) {
+    this._addListener(event, listener, false);
 
     return this;
   }
 
   once(event, listener) {
-    if (!this._events[event]) {
-      this._events[event] = [];
-    }
-
-    this._events[event].push({ listener, once: true });
+    this._addListener(event, listener, true);
 
     return this;
   }
@@ -32,14 +32,12 @@ class MyEventEmitter {
       return this;
     }
 
-    const index = listeners.findIndex((entry) => entry.listener === listener);
+    this._events[event] = listeners.filter(
+      (entry) => entry.listener !== listener,
+    );
 
-    if (index !== -1) {
-      listeners.splice(index, 1);
-
-      if (listeners.length === 0) {
-        delete this._events[event];
-      }
+    if (this._events[event].length === 0) {
+      delete this._events[event];
     }
 
     return this;
@@ -52,43 +50,41 @@ class MyEventEmitter {
       return false;
     }
 
-    const listenersCopy = listeners.slice();
+    const remaining = [];
 
-    for (const entry of listenersCopy) {
+    for (const entry of [...listeners]) {
       entry.listener(...args);
 
-      if (entry.once) {
-        const index = this._events[event].indexOf(entry);
-
-        if (index !== -1) {
-          this._events[event].splice(index, 1);
-        }
+      if (!entry.once) {
+        remaining.push(entry);
       }
     }
 
-    if (this._events[event] && this._events[event].length === 0) {
+    if (remaining.length > 0) {
+      this._events[event] = remaining;
+    } else {
       delete this._events[event];
     }
 
     return true;
   }
 
-  prependListener(event, listener) {
+  _prepend(event, listener, once) {
     if (!this._events[event]) {
       this._events[event] = [];
     }
 
-    this._events[event].unshift({ listener, once: false });
+    this._events[event].unshift({ listener, once });
+  }
+
+  prependListener(event, listener) {
+    this._prepend(event, listener, false);
 
     return this;
   }
 
   prependOnceListener(event, listener) {
-    if (!this._events[event]) {
-      this._events[event] = [];
-    }
-
-    this._events[event].unshift({ listener, once: true });
+    this._prepend(event, listener, true);
 
     return this;
   }
@@ -104,7 +100,7 @@ class MyEventEmitter {
   }
 
   listenerCount(event) {
-    return this._events[event] ? this._events[event].length : 0;
+    return this._events[event]?.length || 0;
   }
 }
 
